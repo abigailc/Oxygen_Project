@@ -14,7 +14,7 @@ Path_Blast = "/Users/abigailc/blast/"
 
 import time
 import os
-from Oxy_SS_modules.Classes_DTL_Detector import Fasta
+from oxy_mods.Classes_DTL_Detector import Fasta
 def gen_correlate_file(list_of_input_files, corr_file):
     #this should be in form
     #1 name

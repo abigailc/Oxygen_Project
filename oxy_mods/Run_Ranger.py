@@ -28,15 +28,15 @@ def Master_Ranger_SS(list_of_big_clades, projectname, list_of_short_clades, orig
     os.chdir(projectname)
 
     os.system("mkdir Ranger_DTL")
-    #why do we ahve to be in rangerdtl directory? ruins everything.
+ 
     os.chdir("Ranger_DTL")
+    os.system("mkdir ranger_input; mkdir ranger_output; mkdir biparts")
     ###############BOOTSTRAP FUNCTION###################
     print("num_big_clades: "+str(len(list_of_big_clades)))
     good, error = Check_Boots_Exist(list_of_big_clades, base_dir)
     print("gene_tree_bootstraps_exist: "+str(len(good)))
     good, error = Check_Species_Exist(good, error, base_dir)
     print("species_besttrees_exist: "+str(len(good)))
-
     ranger_names, i = Make_Ranger_In_For_Each_Bootstrap(good)
     print("ranger_input_files:")
     print(ranger_names)
@@ -45,7 +45,7 @@ def Master_Ranger_SS(list_of_big_clades, projectname, list_of_short_clades, orig
     exist_list = []
     for item in list_of_big_clades:
         bipartition_table = item.prefix+"biparts_table.txt"
-        exists = os.path.isfile(bipartition_table)
+        exists = os.path.isfile("biparts/"+bipartition_table)
         if exists is True:
             exist_already+=1
             ranger_names.remove(item.prefix+"RangerIn.txt")
@@ -82,14 +82,23 @@ def Master_Ranger_SS(list_of_big_clades, projectname, list_of_short_clades, orig
 #        item.transfer_recipient_tips = transfer_recips_list
     
     print("finished making bipartitions tables.")
-    #go back to MakeSpeciesTrees
-    os.chdir("..")
-    os.chdir("..")
+
 
 
 
     #clean up the utter shitshow that is left on the cluster in clus_head/Ranger
-    os.system("ssh "+ssh_inst+" 'cd Ranger; mkdir "+projectname+"; mv *"+projectname+"* "+projectname+"/")
+    print("moving files on the cluster... don't want to leave a mess! ;)")
+    os.system(ssh_inst+" \'cd Ranger; mkdir "+projectname+"; mv *"+projectname+"* "+projectname+"/\'")
+    print("reorganizing files locally...")
+
+    os.system("mv *RangerIn.txt ranger_input/")
+
+    os.system("mv *RangerOut.txt ranger_output/")
+    os.system("mv *biparts_table.txt biparts/")
+
+    #go back to MakeSpeciesTrees
+    os.chdir("..")
+    os.chdir("..")
 
     #next step : compile and send a list of "tips to ignore (transfer recipients)" to Choose Seqs Large ST.
     #this function was removed because EVERY TIP was part of a deeper transfer somewhere. could maybe do something to avoid really shallow transferS??
@@ -317,10 +326,15 @@ def Add_Ranger_To_Subtree_Boots(ranger_outputs, list_of_big_clades):
             #this deals with if you couldn't run all 100 bootstraps for any reason. 
             a=os.path.isfile(str(num)+ranger_outputs[i])
             if a is False:
+                b=os.path.isfile("ranger_output/"+str(num)+ranger_outputs[i])
+                if b is False:
                 #warning message.
-                print("total of :"+str(num-1)+" rangerfiles found for "+largest.prefix)
-                break
-            list_of_rangers.append(str(num)+ranger_outputs[i])
+                    print("total of :"+str(num-1)+" rangerfiles found for "+largest.prefix)
+                    break
+                if b is True:
+                    list_of_rangers.append("ranger_output/"+str(num)+ranger_outputs[i])
+            if a is True:
+                list_of_rangers.append(str(num)+ranger_outputs[i])
         largest.rangerout_list = list_of_rangers
         i += 1
 
@@ -1199,39 +1213,42 @@ def Check_Boots_Exist(list_of_big_clades, base_dir):
 
 def Check_Species_Exist(list_of_big_clades, bad, base_dir):
     #this is checking that the best SPECIES tree exists. besttree raxml.
+    #are we checking for the filename or for the string containing the content of the file? besttree_str = ((a,b)(c,d),e);
+    #so really, A) check that besttree_str isn't empty.
+    #then, for double - check you can insure that the file exists... but honestly thats not really important.
     good = []
     for item in list_of_big_clades:
         if item.besttree_str == "":
-            print("no species tree was associated with the clade")
+            print("no species best_tree was associated with the clade: "+item.prefix)
             bad.append(item)
         else:
             good.append(item)
-        a = item.besttree_str
-        b = os.path.isfile(a)
-        if b is True:
-            good.append(item)
-        else:
-            projectname = item.projectname
-            b = os.path.isfile(base_dir+"/"+projectname+"/Species_Trees/trees/"+a)
-            if b is True:
-                item.besttree_str = base_dir+"/"+projectname+"/Species_Trees/trees/"+a
-                print("b was true")
-                good.append(item)
-            else:
-                d = a.split("/")
-                e = d[-1]
-                c = os.path.isfile(base_dir+"/"+projectname+"/Species_Trees/trees/"+e)
-                if c is True:
-                    print("c was true")
-                    item.besttree_str = base_dir+"/"+projectname+"/Species_Trees/trees/"+e
-                    good.append(item)
-                else:
-                    print("Couldn't find a besttree file for :")
-                    print(item.prefix)
-                    print(item.besttree_str)
-                    print("issue finding species besttree for: "+e)
-                    raise SystemExit
-                    bad.append(item)
+        # a = item.besttree_str
+        # b = os.path.isfile(a)
+        # if b is True:
+        #     good.append(item)
+        # else:
+        #     projectname = item.projectname
+        #     b = os.path.isfile(base_dir+"/"+projectname+"/Species_Trees/trees/"+a)
+        #     if b is True:
+        #         item.besttree_str = base_dir+"/"+projectname+"/Species_Trees/trees/"+a
+        #         print("b was true")
+        #         good.append(item)
+        #     else:
+        #         d = a.split("/")
+        #         e = d[-1]
+        #         c = os.path.isfile(base_dir+"/"+projectname+"/Species_Trees/trees/"+e)
+        #         if c is True:
+        #             print("c was true")
+        #             item.besttree_str = base_dir+"/"+projectname+"/Species_Trees/trees/"+e
+        #             good.append(item)
+        #         else:
+        #             print("Couldn't find a besttree file for :")
+        #             print(item.prefix)
+        #             print(item.besttree_str)
+        #             print("issue finding species besttree for: "+e)
+        #             raise SystemExit
+        #             bad.append(item)
     return good, bad
 
 def run_ranger_on_cluster_boots(ranger_in_names, ranger_out_names, projectname, i):
@@ -1399,7 +1416,7 @@ def Parse_Ranger_Clade_BOTHWAYS(rangerfiles, bipartitions_table):
 
     #the summary table has been removed for right now becauase i never used it for anything??
 
-    print(bipartitions_table)
+    print("completed parsing and wrote to: "+bipartitions_table)
 
     return bipartitions_table, []
 
@@ -1420,8 +1437,8 @@ def dictionary_check_bipart_BOTHWAYS(node_dict, list_res):
         for result_node in list_res:
             #if transfer exists in the dictionary and in current bootstrap, add a Y and a number.
             if result_node == each_node:
-                clade_dict[result_node][0] += 1
-                clade_dict[result_node][1].append("Y")
+                node_dict[result_node][0] += 1
+                node_dict[result_node][1].append("Y")
                 err = "no"
         #if transfer in dictionary but not in current bootstrap, add a N and no number.
         if err == "yes":
@@ -1513,6 +1530,9 @@ def Parse_Single_Ranger_Output_BOTHWAYS(rangerfile):
                 node_sp_recip = node_finder[-1]
                 node_sp_donor = node_finder[-4]
                 node_sp_donor = node_sp_donor.strip(",")
+                node_ge = node_ge.strip()
+                node_sp_donor = node_sp_donor.strip()
+                node_sp_recip = node_sp_recip.strip()
 
                 #convert and add gene version
                 list_of_tips_ge = gene_tree_dict[node_ge]
@@ -1599,6 +1619,6 @@ def Parse_Single_Ranger_Output_BOTHWAYS(rangerfile):
             else:
                 #this should ignore the uh initial SPecies Tree": and the species tree itseld and any \n lines
                 continue
-    print("done with ranger_parseing_bothways")
+    #print("done with single_ranger_parseing_bothways")
     return results_sp, results_ge
 #____________RESET

@@ -267,6 +267,19 @@ def Run_Detection(stringlist, treefile, artcutoff, fewnum, treesubfile, inputfas
         list_of_short_clades.append(item)
     #print(list_of_big_clades)
 
+
+    
+    #print("raxlist")
+    #print(rax_list)
+    
+    #print(boots_species)
+    #print(boots_gene)
+    #print("boots lists")
+    for item in boots_gene:
+        a = os.path.isfile(item)
+        if a is False:
+            print("couldn't find: "+item+" trying to scp again... NOT IMPLEMENTED")
+            pass
         
     #relocating objects to be organized and find-able
     print("Moving objects to better locations...")
@@ -475,28 +488,30 @@ if __name__ == "__main__":
 
     #IMPORTS again?
     #CALL SOMETHING TO MAKE SUBTREES, GET CLADE INFORMATION
-#    from oxy_mods.Subtree_Clade_Gen import *
+    from oxy_mods.Subtree_Clade_Gen import *
 
     #CALL SOMETHING TO MAKE SPECIES TREES
-#    from oxy_mods.MakeSpeciesTrees import *
+    from oxy_mods.MakeSpeciesTrees import *
 
     #CALL SOMETHING TO MAKE GENE TREES
-#    from oxy_mods.MakeGeneTrees import *
+    from oxy_mods.MakeGeneTrees import *
 
     #CALL SOMETHING TO RUN RANGER DTL
-#    from oxy_mods.Run_Ranger import *
+    from oxy_mods.Run_Ranger import *
 
+    #CALL SOMETHING TO DO THE SUBSAMPLING
+    #from oxy_mods.???? import *
 
     #CLASSES
-#    from oxy_mods.Classes_DTL_Detector import Fasta
-#    from oxy_mods.Classes_DTL_Detector import Subtree
+    from oxy_mods.Classes_DTL_Detector import Fasta
+    from oxy_mods.Classes_DTL_Detector import Subtree
     
     print("Running in terminal")  
- #   import sys
- #   import argparse
- #   import os
- #   import re
- #   import time
+    import sys
+    import argparse
+    import os
+    import re
+    import time
 
     #AN EXAMPLE CALL: $python Overall_DTL_Detector.py ~/Documents/New_MST/ example_aligned_fasttree.nexus -r 4 -m 5 (-t if treefile) (-ss or -c ???) 
     #-f example.fasta -v -n EXAMpleproject1

@@ -1,8 +1,9 @@
 #!/usr/bin/python
 
 #abigailc@Actaeon Mar 8 2017
+#edit July 7 abigailc@Actaeon 2017
 
-#issue may2: for SOD we are missing verification of anything that was "fix your mistakes-d" like cyanobacteria!
+#issue may2: for SOD we are missing verification of anything that was "fix your mistakes-d" like cyanobacteria! FIXED
 
 #this will take input of (list of big clades) (list_of_small_clades)(original_fasta)
 #for all big clades, variables include:
@@ -22,72 +23,68 @@ def Master_Preform_Subsampling(list_of_big_clades, list_of_small_clades, origina
 
 
     #fix your mistakes again
-    #print (projectname)
-    #print(projectname[:3])
-   # r = raw_input("click y to continue")
     if projectname[:3] == "SOD":
         sod = True
         print("SOD IS TRUE")
     else:
         sod = False
+
+    #Make Lists of Tips to subsample, to preserve all transfers between groups of the level specified (eg - order.... looking at each run's created gene tree.)
+    print("Defining BigClades")
     Define_Bigclade(list_of_big_clades, list_of_small_clades)
+    print("Defining SmallClades")
     Define_Smallclade(list_of_big_clades, list_of_small_clades)
     SUBSAMPLED_SEQUENCE_IDS = []
     print("Looking through each large idenfified clade")
     print("taking between 2 and n sequences from each, depending on the number of deep potential transfers identified")
-    print("nothing that prints should include amino acids")
     for item in list_of_big_clades:
-        #items in take2 are NOT FINE
-        #if item.take2 != []:
-            #print("firstitem")
-            #print(item.take2[0])
         illegals = []
         listtree = item.gene_tree
         needed = item.string_name
-        print(needed+" selections")
+        print(needed+" selections:")
         listset = [item.take0, item.take1, item.take2]
-        #print(listset)
-        #print("^before anything")
         If_Empty_Add_First_Split_To_1(listset, listtree)
-        
-        #print(listset)
-        #print("^after if:empty")
+        #there will be duplicate lists if it found multiple subclades within a subtree.
+        #also maybe we want to not sample deepest split if there are more specified samples requested. 
+        #so remove lists that are a superset of any other list
+        #and also identical copies
         listset[0] = Remove_Excess_Lists(listset[0])
         listset[1] = Remove_Excess_Lists(listset[1])
         listset[2] = Remove_Excess_Lists(listset[2])
-        #print(listset)
-        #print("^ print after remove excess")
-        trans_recips = item.transfer_recipient_tips
-        #if trans_recips != []:
-            #print("trans recip 1")
-            #print(item.transfer_recipient_tips[0])
+
+        #this is not tracked anymore, but maybe we want to re-implement it? 
+        #Picking tips within a subtree that are likely recipients of transfer
+        #removed because ALL TIPS were called "recipients of transfer" and we were seriously messing up due to this.
+        
+    #    trans_recips = item.transfer_recipient_tips
 
 
         #AS A TEST IMMA DISABLE THIS
-
    #     #for tip in trans_recips:
   #      #    newtip = convert_XO_to_fulltipname(tip, original_fasta_object)
  #       #    illegals.append(newtip)
+
+        #don't take the same tip twice. this shouldn't ever happen with string-matching, but, uh, better safe than sorry
         for tip in SUBSAMPLED_SEQUENCE_IDS:
             illegals.append(tip)
-        #print ("all illegals:")
-        #print(illegals)
 
-        if listset[0] != []:
-            for a_list in listset[0]:
-                for tip in a_list:
-                    illegals.append(tip)
+        #make illegal anything set in the "take 0" category. (why?)
+        #if listset[0] != []:
+        #    for a_list in listset[0]:
+        #        for tip in a_list:
+        #            illegals.append(tip)
+        #take one from each list in listset1
         if listset[1] != []:
             for a_list in listset[1]:
                 verified = False
                 for thistip in a_list:
-
                     verified = Verify(thistip, needed, illegals, sod)
                     if verified is True:
                         break
                 print("appending "+thistip)
                 SUBSAMPLED_SEQUENCE_IDS.append(thistip)
                 illegals.append(thistip)
+        #take one from each list in listset2
         if listset[2] != []:
             for a_list in listset[2]:
                 onedone = False
@@ -107,10 +104,10 @@ def Master_Preform_Subsampling(list_of_big_clades, list_of_small_clades, origina
                 if onedone is False:
                     print("no tips could be verified? list is:")
                     print(a_list)
+                    #raise SystemExit
 
-    #this is a very basic TAKE 2
-    #probably i actually want to do a deepest split thing
-    #WAIT I CANT BECAUSE by definition these are too small to have made trees of. right. ugh.
+    #this is a very basic TAKE 2 for the small clades --- because we don't ahve any trees for them!
+    #maybe output two files - one with and one without small clades??
     print("Now looking through the list of small clades... identified groups too sparse to make a subtree of")
     print("Keeping two per identified group")
     for item in list_of_small_clades:
@@ -150,16 +147,7 @@ def Master_Preform_Subsampling(list_of_big_clades, list_of_small_clades, origina
     print(len(original_fasta_object.ids))
     print(len(new_ss))
     print("^ number seqs in original fasta")
-    #print(original_fasta_object.ids[0])
-
-    #if len(new_ss) > 151:
-    #    print(new_ss[0])
-    #    print(new_ss[50])
-    #    print(new_ss[100])
-    #    print(new_ss[150])
-    #    print("^example tips from to_extract")
-    #print("if this shit doesnt work, just run a FEAST extract with the above list. see if that works.")
-    #raise SystemExit
+    #do the extraction and write the new .fasta file.
     original_fasta_object.extract(new_ss)
     original_fasta_object.gen_new_fasta(projectname+"_SS.fasta")
     print("your final subsampled tree (trying to preserve as many deep transfers as possible) is located at: "+projectname+"Overall_Subsampled.fasta")
@@ -167,11 +155,9 @@ def Master_Preform_Subsampling(list_of_big_clades, list_of_small_clades, origina
     return projectname+"_SS.fasta"
     
 
-####blahhhhhh####
 
-    #now generate a new fasta from original fasta that contains the tips listed in subsampled_sequence_ids.
           
-#OLD    ######################SUBSAMPLING FUNCTIONS########
+######################SUBSAMPLING FUNCTIONS########
 
 def convert_XO_to_fulltipname(oldtip, fasta_object):
     list_new_options = fasta_object.original_ids
@@ -218,14 +204,15 @@ def Is_X_Exactly_Y(x_tips, y_tips):
 
 def Define_Bigclade(list_of_big_clades, list_of_small_clades):
     for bigc in list_of_big_clades:
-        print("define bigclade: subtree object: fasta_object: ids [0]")
-        print(bigc.fasta_object.ids[0])
+        print("________BEGINNING ON subtree object: "+bigc.prefix)
         bigc.accounted_for = []
         bigc.take0 = []
         bigc.take1 = []
         bigc.take2 = []
         #see if another bigclade resides within
         for potential_sub in list_of_big_clades:
+            if potential_sub == bigc:
+                continue
             within = Is_X_within_Y(potential_sub.fasta_object.ids, bigc.fasta_object.ids)
             if within is True:
                 #see if potential_sub is half of deepest split exactly.
@@ -233,15 +220,12 @@ def Define_Bigclade(list_of_big_clades, list_of_small_clades):
                 #find where deepest split is and record the sistergroup to it.
                 #deepest split is generating these tips purely from a gene_tree.
                 #maybe the gene_tree is not what i expect it to be.
-                print("bigclade gene tree going into deepest split:")
-
-                print(bigc.gene_tree_name)
-                print("Should be raxml_besttree or some shit. not a fasta. ^")
+                print("there is another big clade within this one! "+potential_sub.prefix+" is being tested for optimal subsampling")
                 clade1, clade2, clade1_tre, clade2_tre= DeepestSplit(bigc.gene_tree)
                 #print("define bigclades: clade1 after deepestsplit[0]")
                 #print(clade1[0])
                 if clade1 in bigc.accounted_for:
-                    print("already accounted for - must be sub to previous bigclade.")
+                    print("1 already accounted for - must also be sub to previous bigclade.")
                     pass
                 else:
                     within_1 = Is_X_within_Y(potential_sub.fasta_object.ids,clade1)
@@ -274,7 +258,7 @@ def Define_Bigclade(list_of_big_clades, list_of_small_clades):
                                         #answer needs to be either "error" or ([list_of_strings_in_sister_clade],[list_of_string_in_current_clade])
                                         answer = Iterate_Until_X_Is_Y_Or_Fail(potential_sub.fasta_object.ids, clade3_tre)
                                         if answer == "error":
-                                            print("it's never exactly half. keeping two from deepest split, second deepest, and inner..")
+                                            print("it's never exactly half. keeping two from deepest split, two from each of second deepest/")
                                             if bigc.take2 == []:
                                                 bigc.take2.append(clade2)
                                             bigc.take2.append(clade3)
@@ -305,7 +289,12 @@ def Define_Bigclade(list_of_big_clades, list_of_small_clades):
                                             #answer needs to be either "error" or ([list_of_strings_in_sister_clade],[list_of_string_in_current_clade])
                                             answer = Iterate_Until_X_Is_Y_Or_Fail(potential_sub.fasta_object.ids, clade3_tre)
                                             if answer == "error":
-                                                print("it's never half. didn't implement keeps here.")
+                                                print("it's never exactly half. keeping two from deepest split, + 2 from each second deepest")
+                                                if bigc.take2 == []:
+                                                    bigc.take2.append(clade2)
+                                                bigc.take2.append(clade3)
+                                                bigc.take2.append(clade4)
+                                                
                                                 #done
                                             else:
                                                 if bigc.take2 == []:
@@ -314,8 +303,8 @@ def Define_Bigclade(list_of_big_clades, list_of_small_clades):
                                                 bigc.take2.append(answer[0])
                                                 bigc.take0.append(answer[1])
                     else:
-                        if clade1 in bigc.accounted_for:
-                            print("already accounted for - must be sub to previous bigclade.")
+                        if clade2 in bigc.accounted_for:
+                            print("2 already accounted for - must be sub to previous bigclade.")
                             pass
                         else:
                             within_2 = Is_X_within_Y(potential_sub.fasta_object.ids,clade2)
@@ -325,8 +314,8 @@ def Define_Bigclade(list_of_big_clades, list_of_small_clades):
                                 if a2 is True:
                                     if bigc.take2 == []:
                                         bigc.take2.append(clade1)
-                                        bigc.accounted_for.append(clade2)
-                                        bigc.take0.append(clade2)
+                                    bigc.accounted_for.append(clade2)
+                                    bigc.take0.append(clade2)
                                 if a2 is False:
                                 #go one level deeper
                                 ######IS CLADE 1 THE TREE OR THE LIST OF TIPS. I NEED BOTH.
@@ -342,21 +331,25 @@ def Define_Bigclade(list_of_big_clades, list_of_small_clades):
                                             if a5 is True:
                                                 if bigc.take2 == []:
                                                     bigc.take2.append(clade1)
-                                                    bigc.take2.append(clade6)
-                                                    bigc.take0.append(clade5)
+                                                bigc.take2.append(clade6)
+                                                bigc.take0.append(clade5)
                                             else:
                                             #iterate down until X is Exactly Y.
                                             #answer needs to be either "error" or ([list_of_strings_in_sister_clade],[list_of_string_in_current_clade])
                                                 answer = Iterate_Until_X_Is_Y_Or_Fail(potential_sub.fasta_object.ids, clade5_tre)
                                                 if answer == "error":
-                                                    print("it's never half. didn't implement keeps here.")
+                                                    print("it's never exactly half. keeping two from deepest split, and two from each of second deepests")
+                                                    if bigc.take2 == []:
+                                                        bigc.take2.append(clade1)
+                                                    bigc.take2.append(clade5)
+                                                    bigc.take2.append(clade6)
                                                 #done
                                                 else:
                                                     if bigc.take2 == []:
                                                         bigc.take2.append(clade1)
-                                                        bigc.take2.append(clade6)
-                                                        bigc.take2.append(answer[0])
-                                                        bigc.take0.append(answer[1])
+                                                    bigc.take2.append(clade6)
+                                                    bigc.take2.append(answer[0])
+                                                    bigc.take0.append(answer[1])
 
                                         else:
                                             if clade6 in bigc.accounted_for:
@@ -369,36 +362,40 @@ def Define_Bigclade(list_of_big_clades, list_of_small_clades):
                                                 if a6 is True:
                                                     if bigc.take2 == []:
                                                         bigc.take2.append(clade1)
-                                                        bigc.take2.append(clade5)
-                                                        bigc.take0.append(clade6)
+                                                    bigc.take2.append(clade5)
+                                                    bigc.take0.append(clade6)
                                                 else:
                                                 #iterate down until X is Exactly Y.
                                                 #answer needs to be either "error" or ([list_of_strings_in_sister_clade],[list_of_string_in_current_clade])
                                                     answer = Iterate_Until_X_Is_Y_Or_Fail(potential_sub.fasta_object.ids, clade6_tre)
                                                     if answer == "error":
-                                                        print("it's never half. didn't implement keeps here.")
+                        
+                                                        print("it's never exactly half. keeping two from deepest split, and two from each of second deepest splits")
+                                                        if bigc.take2 == []:
+                                                            bigc.take2.append(clade1)
+                                                        bigc.take2.append(clade5)
+                                                        bigc.take2.append(clade6)
                                                     #done
                                                     else:
                                                         if bigc.take2 == []:
                                                             bigc.take2.append(clade1)
-                                                            bigc.take2.append(clade5)
-                                                            bigc.take2.append(answer[0])
-                                                            bigc.take0.append(answer[1])
+                                                        bigc.take2.append(clade5)
+                                                        bigc.take2.append(answer[0])
+                                                        bigc.take0.append(answer[1])
                             else:
-                                print("Uh, the subclade was split up even at the deepest split! Taking two from each side!")
+                                print("Uh, the inner bigclade was split up even at the deepest split! Taking two from each side of deepest!")
                                 bigc.take2.append(clade1)
                                 bigc.take2.append(clade2)
-                            #i guess then just take two from both sides of deepest split, and we'll see how to subclade works itself out?
+        if bigc.take2 == []:
+            clade1, clade2, clade1_tre, clade2_tre= DeepestSplit(bigc.gene_tree)
+            bigc.take2.append(clade1)
+            bigc.take2.append(clade2)
 
-        #DO THE THING FOR SMALL CLADES ALSO?
-                        
-        #cry about conflicts
+    #results:
+    #if nothing within bigclade: two from each side.
+    #otherwise: somewhere between 2 and 8 from each side (or more if multiple shallow clades I guess)
 
-        
-        
-        #then potential sub is within bigc. now we need to determine where.
-        #see if a smallclade resides within
-        #figure out the sampling requirements and depths.
+    #other bigclades will do their own sampling.
 
 def Iterate_Until_X_Is_Y_Or_Fail(xtips, ytree):
     #x is within y but not exactly it
@@ -472,11 +469,6 @@ def Remove_Excess_Lists(listset):
         for ls in listset:
             if item == sorted(ls):   
                 if foundone is True:
-                    #this is matching with a second option
-                    #print("removing")
-                    #print(ls)
-                    #print("from")
-                    #print(listset2)
                     listset2.remove(ls)
                    
                 else:
@@ -507,12 +499,13 @@ def If_Empty_Add_First_Split_To_1(list_of_lists, subtree_tre):
         return list_of_lists
 
 
-    #gets the stuff AROUND the small clade, but does not directly sample from it.
-    
+#gets the stuff AROUND the small clade, but does not directly sample from it.    
 #this is the same as bigclade but draws potential subs from list_small isntead of list_large
 def Define_Smallclade(list_of_big_clades, list_of_small_clades):
     #all the lists were already generated by define_bigclade
+    #all we are looking to add is any necessary polarizing sequences.
     for bigc in list_of_big_clades:
+        print("looking for small clades residing within: "+bigc.prefix)
         #see if another bigclade resides within
         for potential_sub in list_of_small_clades:
             #print(potential_sub.fastaname)
@@ -558,15 +551,17 @@ def Define_Smallclade(list_of_big_clades, list_of_small_clades):
                                         #answer needs to be either "error" or ([list_of_strings_in_sister_clade],[list_of_string_in_current_clade])
                                         answer = Iterate_Until_X_Is_Y_Or_Fail(potential_sub.fasta_object.ids, clade3_tre)
                                         if answer == "error":
-                                            print("it's never half. didn't implement keeps here.")
-                                            #done
+                                            print("it's never exactly half. keeping two from deepest split, and two from each of second deepest splits")
+                                            if bigc.take2 == []:
+                                                bigc.take2.append(clade2)
+                                            bigc.take2.append(clade3)
+                                            bigc.take2.append(clade4)
                                         else:
                                             if bigc.take2 == []:
                                                 bigc.take2.append(clade2)
                                             bigc.take2.append(clade4)
                                             bigc.take2.append(answer[0])
-                                            bigc.take0.append(answer[1])
-                                            
+                                            bigc.take0.append(answer[1])                                         
                                 else:
                                     if clade4 in bigc.accounted_for:
                                         print("already accounted for")
@@ -585,7 +580,11 @@ def Define_Smallclade(list_of_big_clades, list_of_small_clades):
                                             #answer needs to be either "error" or ([list_of_strings_in_sister_clade],[list_of_string_in_current_clade])
                                             answer = Iterate_Until_X_Is_Y_Or_Fail(potential_sub.fasta_object.ids, clade3_tre)
                                             if answer == "error":
-                                                print("it's never half. didn't implement keeps here.")
+                                                print("it's never exactly half. keeping two from deepest split, and two from each of second deepest splits")
+                                                if bigc.take2 == []:
+                                                    bigc.take2.append(clade2)
+                                                bigc.take2.append(clade3)
+                                                bigc.take2.append(clade4)
                                                 #done
                                             else:
                                                 if bigc.take2 == []:
@@ -629,8 +628,11 @@ def Define_Smallclade(list_of_big_clades, list_of_small_clades):
                                                 #answer needs to be either "error" or ([list_of_strings_in_sister_clade],[list_of_string_in_current_clade])
                                                 answer = Iterate_Until_X_Is_Y_Or_Fail(potential_sub.fasta_object.ids, clade5_tre)
                                                 if answer == "error":
-                                                    print("it's never half. didn't implement keeps here.")
-                                                    #done
+                                                    print("it's never exactly half. keeping two from deepest split, and two from each of second deepest splits")
+                                                    if bigc.take2 == []:
+                                                        bigc.take2.append(clade1)
+                                                    bigc.take2.append(clade5)
+                                                    bigc.take2.append(clade6)
                                                 else:
                                                     if bigc.take2 == []:
                                                         bigc.take2.append(clade1)
@@ -656,7 +658,11 @@ def Define_Smallclade(list_of_big_clades, list_of_small_clades):
                                                 #answer needs to be either "error" or ([list_of_strings_in_sister_clade],[list_of_string_in_current_clade])
                                                     answer = Iterate_Until_X_Is_Y_Or_Fail(potential_sub.fasta_object.ids, clade6_tre)
                                                     if answer == "error":
-                                                        print("it's never half. didn't implement keeps here.")
+                                                        print("it's never exactly half. keeping two from deepest split, and two from each of second deepest splits")
+                                                        if bigc.take2 == []:
+                                                            bigc.take2.append(clade1)
+                                                        bigc.take2.append(clade5)
+                                                        bigc.take2.append(clade6)
                                                     #done
                                                     else:
                                                         if bigc.take2 == []:
@@ -665,82 +671,14 @@ def Define_Smallclade(list_of_big_clades, list_of_small_clades):
                                                         bigc.take2.append(answer[0])
                                                         bigc.take0.append(answer[1])
                             else:
-                                print("Uh, the subclade was split up! Guess you have to code something to deal with that!")
+                                print("small clade split up even in first split; taking two from each side of deepest split")
                                 bigc.take2.append(clade1)
                                 bigc.take2.append(clade2)
-            #DO THE THING FOR SMALL CLADES ALSO?
-                        
-        #cry about conflicts
-
-        
-        
-        #then potential sub is within bigc. now we need to determine where.
-        #see if a smallclade resides within
-        #figure out the sampling requirements and depths.
-
-
-# def Choose_Seqs_Large_ST_OLD(list_of_big_clades):
-#     chosens_list  = []
-#     #remove transfer recipients from both lists
-#     for thing in list_of_big_clades:
-#         thing.chosen_reps_spec = []
-#         thing.chosen_reps_full = []
-#         for item in thing.transfer_recipient_tips:
-#             if item in thing.first_list:
-#                 thing.first_list.remove(item)
-#             if item in thing.last_list:
-#                 thing.last_list.remove(item)
-#         #now choose a random remaining seq... and then verify that it is in the correct clade
-#         #####CHOOSE.RANDOM or SOMETHING ???
-#         #DO IT UNTIL IT IS VALID!!!! FOR BOTH SIDES!@!!! if they are the same we might have a problem so make them be not the same species also!!!
-#         groupstring = thing.string_name
-#         valid1 = False
-#         valid2 = False
-#         if thing.first_list == "TAKEN_CARE_OF":
-#             pass
-#         else:
-#             for tip in thing.first_list:
-#                 valid1 = Check_If_Tip_In_Group(tip, groupstring)
-#                 if valid1 is True:
-#                     valid1 = tip
-#                     break
-#             if valid1 is False:
-#                 print("Error in chosing sequences... the given split has no sequences of lineage: "+groupstring)
-#             else:
-#                 thing.chosen_reps_spec.append(valid1)
-#                 v1_ind = thing.species_list.index(valid1)
-#                 v1_full = thing.ids[v1_ind]
-#                 thing.chosen_reps_full.append(v1_full)
-#         if thing.last_list == "TAKEN_CARE_OF":
-#             pass
-#         else:
-#             for tip in thing.last_last:
-#                 valid2 = Check_If_Tip_In_Group(tip, groupstring)
-#                 if valid2 is True:
-#                     valid2 = tip
-#                     break
-#             if valid2 is False:
-#                 print("Error in chosing sequences... the given split has no sequences of lineage: "+groupstring)
-#             else:
-#                 thing.chosen_reps_spec.append(valid2)
-#                 v2_ind = thing.species_list.index(valid2)
-#                 v2_full = thing.ids[v2_ind]
-#                 thing.chosen_reps_full.append(v2_full)
-#         for t in thing.chosen_reps_full:
-#             chosens_list.append(t)
-#     return chosens_list
-#         #thing.chosen_reps should be 2 things, unless an error was found, or it was previously known to be a weird single-out clade (the sister group will be rep w/ two seqs from that subtree.
-
-# def Add_Deepest_Split_To_Subtree(list_of_big_clades):
-#     for item in list_of_big_clades:
-#         clade1, clade2, clade1_tree, clade2_tree = DeepestSplit(item.gene_tree_species_tips)
-#         item.clade1_list = clade1
-#         item.clade2_list = clade2
 
 
 def DeepestSplit(tree):
     #provided subtree will be text. like
-#(((((((((((Elephantulus_edwardii:0.02656660969,Orycteropus_afer:0.006886559777):0.002186555754,Trichechus_manatus:0.0207867919)89:0.0042892984,(Erinaceus_europaeus:0.0150776695,Sus_scrofa:0.01871033399)44:0.002137367876)98:0.001261277757,Equus_asinus:0.006995816459)11:0.0003479426504,((Pteropus_vampyrus:0.01260656735,(Pan_paniscus:0.007271418717,Manis_javanica:0.01036292681)13:0.001322734885)9:0.001552612205,(Dasypus_novemcinctus:0.009902206268,Tupaia_chinensis:0.02113855241)30:0.001364556134)12:0.001840714523)4:0.001979025907,Galeopterus_variegatus:0.00671926141)25:0.004692110764,Ochotona_princeps:0.02065394194)71:0.005193088649,Mus_musculus:0.01442576505)60:0.02036347729,(Monodelphis_domestica:0.007867166076,Sarcophilus_harrisii:0.01059171724)100:0.02083374525)100:0.007086087413,Ornithorhynchus_anatinus:0.03185159824)65:0,Gekko_japonicus:0.04818786247)Root;
+    #(((((((((((Elephantulus_edwardii:0.02656660969,Orycteropus_afer:0.006886559777):0.002186555754,Trichechus_manatus:0.0207867919)89:0.0042892984,(Erinaceus_europaeus:0.0150776695,Sus_scrofa:0.01871033399)44:0.002137367876)98:0.001261277757,Equus_asinus:0.006995816459)11:0.0003479426504,((Pteropus_vampyrus:0.01260656735,(Pan_paniscus:0.007271418717,Manis_javanica:0.01036292681)13:0.001322734885)9:0.001552612205,(Dasypus_novemcinctus:0.009902206268,Tupaia_chinensis:0.02113855241)30:0.001364556134)12:0.001840714523)4:0.001979025907,Galeopterus_variegatus:0.00671926141)25:0.004692110764,Ochotona_princeps:0.02065394194)71:0.005193088649,Mus_musculus:0.01442576505)60:0.02036347729,(Monodelphis_domestica:0.007867166076,Sarcophilus_harrisii:0.01059171724)100:0.02083374525)100:0.007086087413,Ornithorhynchus_anatinus:0.03185159824)65:0,Gekko_japonicus:0.04818786247)Root;
     #returns: ["tipa1","tipa2", "tipa3"],["tipb1","tipb2","tipb3"]
     # where the first list represents strings in the first clade made by deepest split, and second list represents strings in the other clade.
     
@@ -777,25 +715,11 @@ def DeepestSplit(tree):
     first = first+";"
     last = last+";"
 
-    #currently is returning thing/nthing2/nthing3??
-    #or something really weird???
-   # print("DEEPEST SPLIT GENERATED")
-   # print(first_edit_list, last_edit_list, first, last)
+
     if "\n" in first:
         print("seems like deepest split is still wonky.")
         print("first is: "+first)
     return first_edit_list, last_edit_list, first, last
-
-
-
-
-
-#a = DeepestSplit("((((((((((Elephantulus_edwardii:0.02656660969,Orycteropus_afer:0.006886559777):0.002186555754,Trichechus_manatus:0.0207867919)89:0.0042892984,(Erinaceus_europaeus:0.0150776695,Sus_scrofa:0.01871033399)44:0.002137367876)98:0.001261277757,Equus_asinus:0.006995816459)11:0.0003479426504,((Pteropus_vampyrus:0.01260656735,(Pan_paniscus:0.007271418717,Manis_javanica:0.01036292681)13:0.001322734885)9:0.001552612205,(Dasypus_novemcinctus:0.009902206268,Tupaia_chinensis:0.02113855241)30:0.001364556134)12:0.001840714523)4:0.001979025907,Galeopterus_variegatus:0.00671926141)25:0.004692110764,Ochotona_princeps:0.02065394194)71:0.005193088649,Mus_musculus:0.01442576505)60:0.02036347729,(Monodelphis_domestica:0.007867166076,Sarcophilus_harrisii:0.01059171724)100:0.02083374525)100:0.007086087413,Ornithorhynchus_anatinus:0.03185159824)65:0,Gekko_japonicus:0.04818786247)Root;")
-
-#print (a)
-
-
-
 
 # verified = Verify(thistip, needed, illegals)
 #eg tip = "Cyano|Nostocales|Nostoc_punctiforme_PCC_73102|gi#|12345"
@@ -810,28 +734,24 @@ def Verify(tip, needs, illegals, sod = False):
     #else:
     verb = False
 
+    #fix your mistakes
     if sod is True:
-    
         if len(needs) > 6:
             if verb is True:
                 print (needs[-7:])
             if "mycetes" in needs[-7:]:
                 needs = re.sub("mycetes", "myc", needs)
-
         if len(needs) > 7:    
-
             if verb is True:
                 print (needs[-8:])        
             if "bacteria" in needs[-8:]:
                 needs = re.sub("bacteria", "bac", needs)
         if len(needs) > 8:
-
             if verb is True:
                 print (needs[-9:])
             if "mycetales" in needs[-9:]:
                 needs = re.sub("mycetales", "mycl", needs)
         if len(needs) > 10:
-
             if verb is True:
                 print (needs[-11:])
             if "bacteriales" in needs[-11:]:
@@ -845,7 +765,6 @@ def Verify(tip, needs, illegals, sod = False):
             print(tip+" in illegals")
             return False
         else:
-
             return True
     return False
     

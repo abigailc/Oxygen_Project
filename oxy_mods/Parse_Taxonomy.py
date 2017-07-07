@@ -20,7 +20,7 @@ import os
 import re
 import time
 import sys
-from Oxy_SS_modules.Classes_DTL_Detector import Fasta
+#from oxy_mods.Classes_DTL_Detector import Fasta
 
 #BASIC OPERATIONS
 def Str_To_Taxid(string, names_file):
