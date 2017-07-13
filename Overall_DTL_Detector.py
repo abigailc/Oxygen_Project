@@ -361,6 +361,7 @@ def Run_Detection(stringlist, treefile, artcutoff, fewnum, treesubfile, inputfas
     #calling fnx right below
     run_on_ss_fasta(subfasta, projectname)
     print("really done")
+    return "finished"
 
 #this is the function that is called when doing the FINAL PASS of an OverallDTL detector run. it should be fed the subsampled, final dataset.
 def run_on_ss_fasta(subfasta,projectname):
@@ -399,6 +400,7 @@ def run_on_ss_fasta(subfasta,projectname):
     #run raxml on cluster
     #instead of "FALSE" going into run raxml - pass the tip name in a list [species_name]
     print("making a species tree")
+
     rax_out, cc_files, incomplete, boots_species = Species_Tree_For_The_Subsampled_Fasta(SS_Subtree, SS_Subtree.projectname, cat_file)
     print("finished Species_Tree_for_ss_fasta")
     print(rax_out)
@@ -463,6 +465,44 @@ def run_on_ss_fasta(subfasta,projectname):
     #
 
 
+#try doing this with properly rooted species tree for the final SMC run.
+def Final_Pass_Premade_Trees(subfasta,projectname, raxml_species_tree, raxml_gene_boots):
+
+    #set up the subtree
+    os.system("mkdir "+projectname+"_SS; cd "+projectname+"_SS; mkdir Gene_Trees; cd Gene_Trees; mkdir boots; cd ..; cd ..")
+    os.system("cp "+raxml_gene_boots+" "+projectname+"_SS/Gene_Trees/boots/")
+    print(projectname)
+    print("attaching fasta")
+    SS_Subtree = Subtree("SubSampled")
+    SS_Subtree.fasta = subfasta
+    SS_Subtree.fasta_object = Fasta(subfasta)
+    print(os.getcwd())
+    print(subfasta)
+    SS_Subtree.fasta_object.gen_original_lists(subfasta)
+    SS_Subtree.fasta_object.prefix = projectname+"_SS"
+    SS_Subtree.prefix = projectname+"_SS"
+    SS_Subtree.projectname = projectname+"_SS"
+    projectname = projectname+"_SS"
+    
+    print("attaching species besttree")
+    SS_Subtree.set_species_tree_name(raxml_species_tree)
+    with open (raxml_species_tree) as old:
+        for line in old:
+            rax_best = line
+            break
+    SS_Subtree.besttree_str = rax_best
+
+    print("attaching boots from gene tree")
+    SS_Subtree.boot_gene_file = raxml_gene_boots
+
+    print("running rangerdtl")
+    #requires a set besttree_str, and bootstraps for the gene tree.
+    Master_Ranger_Single(SS_Subtree, SS_Subtree.projectname)
+    
+    print("Should have ranger biparts/results now")
+    print("need to run add numbers to nodes.")
+    #
+
 
 
 
@@ -511,16 +551,18 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--treesfile", action = "store", default = "NA", help="if you already have a subtrees file and dont want to rerun it")
     parser.add_argument("-ss", "--subsampling", action = "store_true", help="toggles one rank lower subsampling within each clade")
     parser.add_argument("-d", "--detection_program", action = "store_true", help="toggles run the detection program(main point)")
-    parser.add_argument("-f", "--fasta", action = "store", help="if using subsampling, provide a fasta file to pull sequences from")
+    parser.add_argument("-fas", "--fasta", action = "store", help="if using subsampling, provide a fasta file to pull sequences from")
     parser.add_argument("-v", "--verbose", action = "store_true", help="prints more information - for debugging mostly.")
     parser.add_argument("-n", "--nameofproject", action = "store", help="name for youyr project - will be included in output file names. short. eg: SQMO")
     parser.add_argument("-pr", "--progress_read", action = "store", default = False, help="input progress file name if need be")
-    parser.add_argument("-fp", "--final_pass", action = "store", default = False, help="input a fasta file. i will make a species tree (currently unrooted) and do ranger DTL on the BEST raxml genetree. output biparts + (future) tree w transfer values at nodes)")
+    parser.add_argument("-fp", "--final_pass", action = "store_true", default = False, help="input a fasta file. i will make a species tree (currently unrooted) and do ranger DTL on the BEST raxml genetree. output biparts + (future) tree w transfer values at nodes)")
+    parser.add_argument("-pt", "--premade_trees", action = "store", default = False, help="for use with final_pass: type in quotes \'raxml_species_besttree raxml_gene_tree_boots\' ")
     
     args = parser.parse_args()
     
 #making input list
     try:
+        print (args.directory)
         os.chdir(args.directory)
     except:
         print ("didn't change dir")
@@ -528,11 +570,15 @@ if __name__ == "__main__":
     if args.final_pass != False:
         #do the final pass
         #and then close
-        
-        a = run_on_ss_fasta(subfasta)
-
-        print("done")
-        raise SystemExit
+        if args.premade_trees != False:
+            raxml_species_tree, raxml_gene_boots = args.premade_trees.split(" ")
+            Final_Pass_Premade_Trees(args.fasta, args.nameofproject, raxml_species_tree, raxml_gene_boots)
+            print("maybe that worked. exiting.")
+            raise SystemExit
+        else:
+            a = run_on_ss_fasta(args.fasta)
+            print("done")
+            raise SystemExit
     if ".newick" in args.NEXUS_TREE:
         try:
             os.system("ConvertPhylo . "+args.NEXUS_TREE+" newick nexus")
@@ -563,13 +609,12 @@ if __name__ == "__main__":
         print("Beginning Smart SubSampling!")
         SubSampling_Master(stringlist, args.NEXUS_TREE, artcutoff, int(args.minimum), args.treesfile, args.fasta, args.verbose)
         #call master subsampling
-    if args.detection_program == True:
+    elif args.detection_program == True:
         if args.progress_read != False:
             list_big, list_small = Read_Progress_File(args.progress_read, args.nameofproject)
         else:
-            list_big, list_small = Run_Detection(stringlist, args.NEXUS_TREE, artcutoff, int(args.minimum), args.treesfile, args.fasta, args.verbose, args.nameofproject)
-        #seqs_to_keep = Master_Ranger_SS(list_big, args.nameofproject, list_small, args.fasta)
-        
+            done = Run_Detection(stringlist, args.NEXUS_TREE, artcutoff, int(args.minimum), args.treesfile, args.fasta, args.verbose, args.nameofproject)
+        #seqs_to_keep = Master_Ranger_SS(list_big, args.nameofproject, list_small, args.fasta)  
     else:
         tabl = PerformScan(stringlist, args.NEXUS_TREE, artcutoff, int(args.minimum), args.treesfile, args.verbose)      
         information = args.NEXUS_TREE+"_INFO.txt"
